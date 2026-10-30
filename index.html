@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusCare - Issue Reporting System</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f5fb;color:#252545}
+header{background:#4936a8;color:white;padding:22px}
+header h1{margin:0 0 7px}
+header p{margin:0;color:#e3ddff}
+.container{max-width:1100px;margin:25px auto;padding:0 15px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat,.panel{background:white;padding:18px;border-radius:12px;box-shadow:0 2px 9px #00000010}
+.stat h2{margin:8px 0;color:#4936a8}
+.stat p{margin:0;color:#666}
+.layout{display:grid;grid-template-columns:1fr 1.5fr;gap:18px;margin-top:20px}
+h3{margin-top:0}
+input,select,textarea{width:100%;padding:11px;margin:7px 0 13px;border:1px solid #ccc;border-radius:7px;font-size:15px}
+textarea{height:90px;resize:vertical}
+button{background:#4936a8;color:white;border:0;padding:11px 16px;border-radius:7px;cursor:pointer}
+button:hover{background:#35277f}
+.issue{border:1px solid #e5e5ef;padding:14px;border-radius:9px;margin:12px 0}
+.issue h4{margin:0 0 8px}
+.issue p{margin:6px 0;color:#555}
+.small{font-size:13px;color:#777}
+.status{font-weight:bold;color:#4936a8}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.actions select{width:auto;margin:8px 0}
+.delete{background:#c0392b}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>CampusCare</h1>
+<p>Campus Issue Reporting & Tracking System</p>
+</header>
+
+<main class="container">
+<div class="stats">
+<div class="stat"><p>Total Issues</p><h2 id="total">0</h2></div>
+<div class="stat"><p>Pending</p><h2 id="pending">0</h2></div>
+<div class="stat"><p>In Progress</p><h2 id="progress">0</h2></div>
+<div class="stat"><p>Resolved</p><h2 id="resolved">0</h2></div>
+</div>
+
+<div class="layout">
+<section class="panel">
+<h3>Report a Campus Issue</h3>
+<form id="issueForm">
+<label>Issue Title</label>
+<input id="title" placeholder="Example: Broken classroom fan" required>
+
+<label>Category</label>
+<select id="category" required>
+<option value="">Select category</option>
+<option>Electrical</option>
+<option>Water Supply</option>
+<option>Cleanliness</option>
+<option>Classroom</option>
+<option>Hostel</option>
+<option>Internet</option>
+<option>Other</option>
+</select>
+
+<label>Campus Location</label>
+<input id="location" placeholder="Example: Block B, Room 204" required>
+
+<label>Priority</label>
+<select id="priority">
+<option>Normal</option>
+<option>High</option>
+<option>Urgent</option>
+</select>
+
+<label>Description</label>
+<textarea id="description" placeholder="Describe the issue..." required></textarea>
+
+<button type="submit">Submit Issue</button>
+</form>
+</section>
+
+<section class="panel">
+<h3>Reported Issues</h3>
+<input id="search" placeholder="Search issues..." oninput="render()">
+<select id="filter" onchange="render()">
+<option value="All">All Statuses</option>
+<option>Pending</option>
+<option>In Progress</option>
+<option>Resolved</option>
+</select>
+<div id="issueList"></div>
+</section>
+</div>
+</main>
+
+<script>
+let issues = JSON.parse(localStorage.getItem("campusIssues") || "[]");
+
+const form = document.getElementById("issueForm");
+
+form.addEventListener("submit", function(e){
+ e.preventDefault();
+
+ const issue = {
+  id: "CC" + Date.now().toString().slice(-7),
+  title: document.getElementById("title").value,
+  category: document.getElementById("category").value,
+  location: document.getElementById("location").value,
+  priority: document.getElementById("priority").value,
+  description: document.getElementById("description").value,
+  status: "Pending",
+  date: new Date().toLocaleString()
+ };
+
+ issues.unshift(issue);
+ save();
+ form.reset();
+ alert("Issue submitted successfully! ID: " + issue.id);
+});
+
+function save(){
+ localStorage.setItem("campusIssues", JSON.stringify(issues));
+ render();
+}
+
+function updateStatus(id, status){
+ issues = issues.map(issue =>
+  issue.id === id ? {...issue, status:status} : issue
+ );
+ save();
+}
+
+function deleteIssue(id){
+ if(confirm("Are you sure you want to delete this issue?")){
+  issues = issues.filter(issue => issue.id !== id);
+  save();
+ }
+}
+
+function render(){
+ document.getElementById("total").textContent = issues.length;
+ document.getElementById("pending").textContent =
+  issues.filter(i => i.status === "Pending").length;
+ document.getElementById("progress").textContent =
+  issues.filter(i => i.status === "In Progress").length;
+ document.getElementById("resolved").textContent =
+  issues.filter(i => i.status === "Resolved").length;
+
+ const search = document.getElementById("search").value.toLowerCase();
+ const filter = document.getElementById("filter").value;
+
+ const filtered = issues.filter(i =>
+  (i.title.toLowerCase().includes(search) ||
+   i.location.toLowerCase().includes(search) ||
+   i.category.toLowerCase().includes(search)) &&
+  (filter === "All" || i.status === filter)
+ );
+
+ const list = document.getElementById("issueList");
+
+ if(filtered.length === 0){
+  list.innerHTML = "<p>No issues found. Submit your first issue!</p>";
+  return;
+ }
+
+ list.innerHTML = filtered.map(i => `
+  <div class="issue">
+   <h4>${escapeHTML(i.title)}</h4>
+   <p><b>Issue ID:</b> ${escapeHTML(i.id)}</p>
+   <p><b>Category:</b> ${escapeHTML(i.category)}</p>
+   <p><b>Location:</b> ${escapeHTML(i.location)}</p>
+   <p><b>Priority:</b> ${escapeHTML(i.priority)}</p>
+   <p>${escapeHTML(i.description)}</p>
+   <p class="small">${escapeHTML(i.date)}</p>
+   <p class="status">Status: ${escapeHTML(i.status)}</p>
+   <div class="actions">
+    <select aria-label="Update status" onchange="updateStatus('${i.id}',this.value)">
+     <option ${i.status==="Pending"?"selected":""}>Pending</option>
+     <option ${i.status==="In Progress"?"selected":""}>In Progress</option>
+     <option ${i.status==="Resolved"?"selected":""}>Resolved</option>
+    </select>
+    <button class="delete" onclick="deleteIssue('${i.id}')">Delete</button>
+   </div>
+  </div>
+ `).join("");
+}
+
+function escapeHTML(value){
+ return String(value).replace(/[&<>"']/g, c => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",
+  '"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+render();
+</script>
+</body>
+</html>
